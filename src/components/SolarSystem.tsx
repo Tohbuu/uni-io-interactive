@@ -3,7 +3,9 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars, Html } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
-import Spaceship from './Spaceship'; // Import Spaceship
+import Spaceship from './Spaceship';
+import { StarSystemData, CelestialBodyData, MoonData } from '../data/universeData';
+import { ShipStats } from '../context/AuthContext';
 
 // Define Mission interface compatible with App.tsx
 export interface Mission {
@@ -13,88 +15,6 @@ export interface Mission {
   description: string;
   reward: string;
 }
-
-// --- Types ---
-interface MoonData {
-  name: string;
-  size: number;
-  distance: number;
-  speed: number;
-  color: string;
-}
-
-export interface PlanetData {
-  name: string;
-  color: string;
-  size: number;
-  distance: number;
-  speed: number;
-  description: string;
-  hasRings?: boolean;
-  moons?: MoonData[];
-  atmosphereColor?: string;
-  // New Scientific Data
-  realDiameter: string;
-  temperature: string;
-  yearDuration: string;
-}
-
-// --- Data ---
-export const planetData: PlanetData[] = [
-  { 
-    name: "Mercury", color: "#A5A5A5", size: 0.4, distance: 6, speed: 1.5, 
-    description: "The smallest planet in the Solar System and the closest to the Sun.",
-    realDiameter: "4,880 km", temperature: "167°C", yearDuration: "88 days"
-  },
-  { 
-    name: "Venus", color: "#E3BB76", size: 0.6, distance: 8, speed: 1.2, 
-    description: "The second planet from the Sun. It has a thick atmosphere trapping heat.", atmosphereColor: "#ffddaa",
-    realDiameter: "12,104 km", temperature: "464°C", yearDuration: "225 days"
-  },
-  { 
-    name: "Earth", color: "#2233FF", size: 0.6, distance: 10, speed: 1.0, 
-    description: "Our home planet, the only known celestial body to support life.", atmosphereColor: "#4488ff",
-    realDiameter: "12,742 km", temperature: "15°C", yearDuration: "365 days",
-    moons: [{ name: "Moon", size: 0.15, distance: 1.2, speed: 3, color: "#DDDDDD" }]
-  },
-  { 
-    name: "Mars", color: "#FF4500", size: 0.5, distance: 12, speed: 0.8, 
-    description: "The Red Planet, known for its iron oxide rich surface.", atmosphereColor: "#ffccaa",
-    realDiameter: "6,779 km", temperature: "-65°C", yearDuration: "687 days"
-  },
-  { 
-    name: "Jupiter", color: "#D2B48C", size: 1.5, distance: 16, speed: 0.5, 
-    description: "The largest planet in the Solar System, a gas giant with a Great Red Spot.",
-    realDiameter: "139,820 km", temperature: "-110°C", yearDuration: "12 years"
-  },
-  { 
-    name: "Saturn", color: "#F4A460", size: 1.2, distance: 20, speed: 0.4, hasRings: true, 
-    description: "Famous for its prominent ring system, composed mainly of ice particles.",
-    realDiameter: "116,460 km", temperature: "-140°C", yearDuration: "29 years"
-  },
-  { 
-    name: "Uranus", color: "#ADD8E6", size: 1.0, distance: 24, speed: 0.3, 
-    description: "An ice giant with a pale blue color due to methane in its atmosphere.",
-    realDiameter: "50,724 km", temperature: "-195°C", yearDuration: "84 years"
-  },
-  { 
-    name: "Neptune", color: "#00008B", size: 1.0, distance: 28, speed: 0.2, 
-    description: "The most distant planet, known for its supersonic winds.",
-    realDiameter: "49,244 km", temperature: "-200°C", yearDuration: "165 years"
-  },
-];
-
-export const sunData: PlanetData = {
-  name: "Sun",
-  color: "#FFD700",
-  size: 2.5,
-  distance: 0,
-  speed: 0,
-  description: "The star at the center of our Solar System. It is a nearly perfect sphere of hot plasma.",
-  realDiameter: "1,392,700 km",
-  temperature: "5,500°C",
-  yearDuration: "N/A"
-};
 
 // --- Components ---
 
@@ -268,7 +188,7 @@ function Atmosphere({ size, color }: { size: number, color: string }) {
   );
 }
 
-interface PlanetProps extends PlanetData {
+interface PlanetProps extends CelestialBodyData {
   onClick: (name: string) => void;
   timeRef: React.MutableRefObject<number>;
   showOrbits: boolean;
@@ -289,12 +209,8 @@ function Planet({ name, color, size, distance, speed, hasRings, moons, atmospher
     <group>
       {showOrbits && <OrbitPath radius={distance} />}
       <group ref={groupRef}>
-        {/* Atmosphere Effect */}
         {atmosphereColor && <Atmosphere size={size} color={atmosphereColor} />}
-        
-        {/* ISS for Earth */}
         {name === "Earth" && <ISS />}
-
         <mesh 
           onClick={(e) => { e.stopPropagation(); onClick(name); }}
           onPointerOver={() => { document.body.style.cursor = 'pointer'; setHover(true); }}
@@ -325,7 +241,6 @@ function Planet({ name, color, size, distance, speed, hasRings, moons, atmospher
             </div>
           </Html>
         </mesh>
-
         {moons?.map((moon, idx) => (
           <Moon key={idx} {...moon} timeRef={timeRef} parentDistance={distance} parentSpeed={speed} />
         ))}
@@ -334,35 +249,34 @@ function Planet({ name, color, size, distance, speed, hasRings, moons, atmospher
   );
 }
 
-function Sun({ onClick }: { onClick: (name: string) => void }) {
+function Sun({ data, onClick }: { data: CelestialBodyData, onClick: (name: string) => void }) {
   const [hovered, setHover] = useState(false);
 
   return (
     <mesh 
       position={[0, 0, 0]}
-      onClick={(e) => { e.stopPropagation(); onClick("Sun"); }}
+      onClick={(e) => { e.stopPropagation(); onClick(data.name); }}
       onPointerOver={() => { document.body.style.cursor = 'pointer'; setHover(true); }}
       onPointerOut={() => { document.body.style.cursor = 'auto'; setHover(false); }}
     >
-      <sphereGeometry args={[2.5, 32, 32]} />
+      <sphereGeometry args={[data.size, 32, 32]} />
       <meshStandardMaterial 
-        emissive="#FFD700" 
+        emissive={data.color} 
         emissiveIntensity={hovered ? 3 : 2} 
-        color="#FFD700" 
+        color={data.color} 
       />
       <pointLight intensity={2} distance={100} decay={2} color="white" />
     </mesh>
   );
 }
 
-function CameraUpdater({ selectedPlanet, controlsRef, timeRef, viewMode }: { selectedPlanet: string | null, controlsRef: any, timeRef: React.MutableRefObject<number>, viewMode: 'orbit' | 'ship' }) {
+function CameraUpdater({ selectedPlanet, controlsRef, timeRef, viewMode, systemData }: { selectedPlanet: string | null, controlsRef: any, timeRef: React.MutableRefObject<number>, viewMode: 'orbit' | 'ship', systemData: StarSystemData }) {
   useFrame(() => {
-    // Only update camera if in orbit mode and a planet is selected
     if (viewMode === 'orbit' && selectedPlanet && controlsRef.current) {
-      if (selectedPlanet === "Sun") {
+      if (selectedPlanet === systemData.star.name) {
         controlsRef.current.target.lerp(new THREE.Vector3(0, 0, 0), 0.1);
       } else {
-        const planet = planetData.find(p => p.name === selectedPlanet);
+        const planet = systemData.planets.find(p => p.name === selectedPlanet);
         if (planet) {
           const targetPos = getPlanetPosition(planet.distance, planet.speed, timeRef.current);
           controlsRef.current.target.lerp(targetPos, 0.1);
@@ -375,16 +289,20 @@ function CameraUpdater({ selectedPlanet, controlsRef, timeRef, viewMode }: { sel
 }
 
 interface SolarSystemProps {
+  systemData: StarSystemData;
   onPlanetSelect: (name: string) => void;
   selectedPlanet: string | null;
   simulationSpeed: number;
   showOrbits: boolean;
   viewMode: 'orbit' | 'ship';
   onExitShip: () => void;
-  activeMission?: Mission | null; // New prop
+  activeMission?: Mission | null;
+  scannedObjects: string[]; // New
+  onScan: (name: string) => void; // New
+  stats: ShipStats; // New
 }
 
-function SceneContent({ onPlanetSelect, selectedPlanet, simulationSpeed, showOrbits, viewMode, onExitShip, activeMission }: SolarSystemProps) {
+function SceneContent({ systemData, onPlanetSelect, selectedPlanet, simulationSpeed, showOrbits, viewMode, onExitShip, activeMission, scannedObjects, onScan, stats }: SolarSystemProps) {
   const controlsRef = useRef<any>(null);
   const timeRef = useRef(0);
 
@@ -397,11 +315,17 @@ function SceneContent({ onPlanetSelect, selectedPlanet, simulationSpeed, showOrb
       <ambientLight intensity={0.1} />
       <Stars radius={300} depth={60} count={20000} factor={7} saturation={0} fade speed={1} />
       
-      <Sun onClick={onPlanetSelect} />
-      <AsteroidBelt timeRef={timeRef} />
-      <Comet timeRef={timeRef} />
+      <Sun data={systemData.star} onClick={onPlanetSelect} />
       
-      {planetData.map((planet) => (
+      {/* Only show asteroids/comets in Solar System for now */}
+      {systemData.id === 'sol' && (
+        <>
+            <AsteroidBelt timeRef={timeRef} />
+            <Comet timeRef={timeRef} />
+        </>
+      )}
+      
+      {systemData.planets.map((planet) => (
         <Planet 
           key={planet.name} 
           {...planet} 
@@ -411,7 +335,7 @@ function SceneContent({ onPlanetSelect, selectedPlanet, simulationSpeed, showOrb
         />
       ))}
 
-      <CameraUpdater selectedPlanet={selectedPlanet} controlsRef={controlsRef} timeRef={timeRef} viewMode={viewMode} />
+      <CameraUpdater selectedPlanet={selectedPlanet} controlsRef={controlsRef} timeRef={timeRef} viewMode={viewMode} systemData={systemData} />
 
       <EffectComposer>
         <Bloom luminanceThreshold={0} luminanceSmoothing={0.9} height={300} intensity={1.5} />
@@ -425,9 +349,12 @@ function SceneContent({ onPlanetSelect, selectedPlanet, simulationSpeed, showOrb
         <Spaceship 
             onExit={onExitShip} 
             onLand={(name) => onPlanetSelect(name)}
-            planets={planetData}
+            planets={systemData.planets}
             timeRef={timeRef}
             activeMission={activeMission}
+            scannedObjects={scannedObjects}
+            onScan={onScan}
+            stats={stats} // Pass stats
         />
       )}
     </>

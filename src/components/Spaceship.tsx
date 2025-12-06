@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
+import { ShipStats } from '../context/AuthContext';
 
 // Define a local interface to avoid circular dependency with SolarSystem.tsx
 interface SimplePlanetData {
@@ -20,20 +21,24 @@ interface SpaceshipProps {
   planets: SimplePlanetData[];
   timeRef: React.MutableRefObject<number>;
   activeMission?: Mission | null;
+  scannedObjects: string[];
+  onScan: (name: string) => void;
+  stats: ShipStats; // New Prop
 }
 
-export default function Spaceship({ onExit, onLand, planets, timeRef, activeMission }: SpaceshipProps) {
+export default function Spaceship({ onExit, onLand, planets, timeRef, activeMission, scannedObjects, onScan, stats }: SpaceshipProps) {
   const shipRef = useRef<THREE.Group>(null);
   const { camera } = useThree();
   
   // Physics State (Refs for high-frequency updates)
   const speedRef = useRef(0);
-  const fuelRef = useRef(100);
+  const fuelRef = useRef(stats.maxFuel); // Use maxFuel from stats
   
   // UI State (State for low-frequency rendering)
   const [fuelDisplay, setFuelDisplay] = useState(100);
   const [speedDisplay, setSpeedDisplay] = useState(0);
   const [isRefueling, setIsRefueling] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   
   const [nearestPlanet, setNearestPlanet] = useState<{name: string, distance: number} | null>(null);
   const [radarBlips, setRadarBlips] = useState<{x: number, y: number, color: string, name: string}[]>([]);
@@ -48,6 +53,12 @@ export default function Spaceship({ onExit, onLand, planets, timeRef, activeMiss
         // Handle Landing
         if (e.code === 'KeyL' && nearestPlanet) {
             onLand(nearestPlanet.name);
+        }
+        // Handle Scanning
+        if (e.code === 'KeyF' && nearestPlanet) {
+             onScan(nearestPlanet.name);
+             setIsScanning(true);
+             setTimeout(() => setIsScanning(false), 1500);
         }
     };
     const handleKeyUp = (e: KeyboardEvent) => keys.current[e.code] = false;
@@ -65,14 +76,14 @@ export default function Spaceship({ onExit, onLand, planets, timeRef, activeMiss
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [nearestPlanet, onLand]);
+  }, [nearestPlanet, onLand, onScan]);
 
   useFrame((state, delta) => {
     if (!shipRef.current) return;
 
     const ship = shipRef.current;
     const rotationSpeed = 1.5 * delta;
-    const acceleration = 15.0 * delta;
+    const acceleration = stats.acceleration * delta; // Use acceleration from stats
     const friction = 0.98;
 
     // Controls
@@ -84,7 +95,7 @@ export default function Spaceship({ onExit, onLand, planets, timeRef, activeMiss
     if (keys.current['KeyA']) ship.rotateY(-rotationSpeed);
     if (keys.current['KeyD']) ship.rotateY(rotationSpeed);
     
-    // Roll (Q = Left, E = Right) - This was already correct
+    // Roll (Q = Left, E = Right)
     if (keys.current['KeyQ']) ship.rotateZ(rotationSpeed);
     if (keys.current['KeyE']) ship.rotateZ(-rotationSpeed);
 
@@ -93,8 +104,8 @@ export default function Spaceship({ onExit, onLand, planets, timeRef, activeMiss
     const nearSun = distToSun < 20; // Refuel range
 
     // Refuel Logic
-    if (nearSun && fuelRef.current < 100) {
-        fuelRef.current = Math.min(fuelRef.current + 0.3, 100);
+    if (nearSun && fuelRef.current < stats.maxFuel) { // Use maxFuel
+        fuelRef.current = Math.min(fuelRef.current + 0.3, stats.maxFuel);
         if (!isRefueling) setIsRefueling(true); // Only trigger render on change
     } else {
         if (isRefueling) setIsRefueling(false);
@@ -102,7 +113,7 @@ export default function Spaceship({ onExit, onLand, planets, timeRef, activeMiss
 
     // Thrust Logic
     if (keys.current['Space'] && fuelRef.current > 0) {
-        speedRef.current = Math.min(speedRef.current + acceleration, 25);
+        speedRef.current = Math.min(speedRef.current + acceleration, stats.maxSpeed); // Use maxSpeed
         fuelRef.current = Math.max(fuelRef.current - 0.15, 0);
     } else if (keys.current['ShiftLeft']) {
         speedRef.current = Math.max(speedRef.current - acceleration, 0);
@@ -159,7 +170,7 @@ export default function Spaceship({ onExit, onLand, planets, timeRef, activeMiss
     
     // Update HUD numbers every 10 frames to save performance
     if (frameCount.current % 10 === 0) {
-        setFuelDisplay(fuelRef.current);
+        setFuelDisplay((fuelRef.current / stats.maxFuel) * 100); // Percentage based on max
         setSpeedDisplay(speedRef.current);
     }
 
@@ -319,6 +330,13 @@ export default function Spaceship({ onExit, onLand, planets, timeRef, activeMiss
               }}>
                   DETECTED: {nearestPlanet.name.toUpperCase()} <br/>
                   <span style={{ fontSize: '12px', color: 'white', animation: 'pulse 1s infinite' }}>PRESS [L] TO LAND</span>
+                  
+                  {!scannedObjects.includes(nearestPlanet.name) && (
+                      <div style={{ marginTop: '5px', color: '#00ffff', fontSize: '12px', borderTop: '1px solid #004444', paddingTop: '2px' }}>
+                          PRESS [F] TO SCAN
+                      </div>
+                  )}
+                  {isScanning && <div style={{ color: '#00ff00', fontWeight: 'bold', animation: 'pulse 0.2s infinite' }}>SCANNING...</div>}
               </div>
           )}
 
