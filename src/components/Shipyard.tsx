@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
     Dialog, DialogTitle, DialogContent, DialogActions, Button, 
-    Typography, Box, LinearProgress, Chip, Grid, Paper 
+    Typography, Box, LinearProgress, Chip, Paper, Grid
 } from '@mui/material';
 import { RocketLaunch, LocalGasStation, Inventory2, Upgrade } from '@mui/icons-material';
 import { useAuth, UpgradeType } from '../context/AuthContext';
@@ -19,7 +19,9 @@ export default function Shipyard({ open, onClose }: ShipyardProps) {
     const stats = getShipStats();
 
     const renderUpgradeCard = (type: UpgradeType, label: string, icon: React.ReactNode, currentStat: number, unit: string) => {
-        const level = user.upgrades[type];
+        // Fix: Safely access upgrades with fallback
+        const upgrades = user.upgrades || { engine: 1, fuel: 1, cargo: 1 };
+        const level = upgrades[type] || 1;
         const cost = level * 500;
         const isMaxed = level >= 5;
 

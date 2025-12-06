@@ -120,8 +120,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const getShipStats = (): ShipStats => {
+      const upgrades = user?.upgrades ?? { engine: 1, fuel: 1, cargo: 1 };
+      const { engine, fuel, cargo } = upgrades;
       if (!user) return { maxSpeed: 25, acceleration: 15, maxFuel: 100, maxCargo: 10 };
-      const { engine, fuel, cargo } = user.upgrades;
       return {
           maxSpeed: 25 + (engine - 1) * 10,
           acceleration: 15 + (engine - 1) * 5,
@@ -156,13 +157,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const buyUpgrade = (type: UpgradeType) => {
       if (!user) return false;
-      const currentLevel = user.upgrades[type];
+      const upgrades = user.upgrades ?? { engine: 1, fuel: 1, cargo: 1 };
+      const currentLevel = upgrades[type];
       if (currentLevel >= 5) return false; // Max level 5
 
       const cost = currentLevel * 500; // 500, 1000, 1500, 2000
       
       if (user.credits >= cost) {
-          const newUpgrades = { ...user.upgrades, [type]: currentLevel + 1 };
+          const newUpgrades = { ...upgrades, [type]: currentLevel + 1 };
           setUser({
               ...user,
               credits: user.credits - cost,

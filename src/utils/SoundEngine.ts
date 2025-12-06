@@ -16,6 +16,23 @@ class SoundEngine {
       
       this.startAmbient();
       this.isInitialized = true;
+
+      // Fix: Handle browser autoplay policy
+      // Browsers block audio until user interaction. We attach a one-time listener to resume it.
+      if (this.context.state === 'suspended') {
+        const resumeAudio = () => {
+          if (this.context && this.context.state === 'suspended') {
+            this.context.resume();
+          }
+          // Clean up listeners after first interaction
+          window.removeEventListener('click', resumeAudio);
+          window.removeEventListener('keydown', resumeAudio);
+        };
+
+        window.addEventListener('click', resumeAudio);
+        window.addEventListener('keydown', resumeAudio);
+      }
+
     } catch (e) {
       console.error("AudioContext not supported", e);
     }
